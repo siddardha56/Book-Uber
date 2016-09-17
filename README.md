@@ -33,6 +33,7 @@ server {
   * Update your Sender's Email Authentication in line number 9, 10.
   * Specify Sender's email in line number 100 which is same as line number 9
   
+### Node Config
 - Download node (node version : 5.0 (older versions are not supported))
 - Navigate to client folder location(in terminal) and run:
   * > npm install
