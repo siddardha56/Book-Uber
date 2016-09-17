@@ -44,3 +44,9 @@ server {
 You can Listen at
 
 > http://localhost:8008/
+
+
+
+- For Production you can run:
+  * > npm run build
+
