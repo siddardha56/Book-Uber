@@ -5,7 +5,6 @@ import fetch from 'isomorphic-fetch';
 import 'rc-time-picker/assets/index.css';
 
 const googleKey = "AIzaSyB6ky0s6kmaxH15hsxsNHKuZeI6n_OG2eA";
-const uberKey = "ECWcv5urK26d-pz-OHio9c9ovHpahx4UBbQIzMTi";
 
 class App extends React.Component {
 	
@@ -13,14 +12,13 @@ class App extends React.Component {
 		super();
 
 		this.state = {
+			showMessage: false,
 			start_latitude: '',
 			start_longitude: '',
 			end_latitude: '',
 			end_longitude: '',
 			email: '',
-			time: '',
-			waitEstimate: '',
-			travelTime: ''
+			time: ''
 		}
 
 		this.getSource = this.getSource.bind(this);
@@ -28,11 +26,6 @@ class App extends React.Component {
 		this.setEmail = this.setEmail.bind(this);
 		this.setTime = this.setTime.bind(this);
 		this.remindMe = this.remindMe.bind(this);
-		this.getTimeEstimate = this.getTimeEstimate.bind(this);
-		this.getPriceEstimate = this.getPriceEstimate.bind(this);
-		this.getPriceTime = this.getPriceTime.bind(this);
-		this.calculateTimeDiff = this.calculateTimeDiff.bind(this);
-
 	}
 
 	getSource(e) {
@@ -85,86 +78,45 @@ class App extends React.Component {
 		})
 	}
 
-	calculateTimeDiff() {
-		
-		var currentTime = new Date();
-		var currentTimeInMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-		var timeDiff = this.state.time - currentTimeInMinutes - this.state.waitEstimate/60 - this.state.travelTime/60;
-		var self = this, interval;
-		if(timeDiff > 1){
-			if((this.state.time - currentTimeInMinutes) > 60)
-				interval = (this.state.time - currentTimeInMinutes - 60) * 60;
-			if(timeDiff <= 60)
-				interval = 15 * 60;
-			if(timeDiff <= 15)
-				interval = 5 * 60;
-			if(timeDiff <= 5)
-				interval = 60;
-			console.log(timeDiff, interval, this.state.time, currentTimeInMinutes);
-			setTimeout(function() {
-				self.remindMe();
-			}, interval * 1000);
-		}
-		else if(timeDiff < 0) {
-			alert("Sorry, too Late to book!");
-		}
-		else alert("Time to go");
-		
-	}
-
-	getPriceTime(url, isTime) {
-		
-		fetch(url, {
-			method: 'GET',
-	        credentials: 'same-origin',
-	        headers: {
-	            'Accept': 'application/json'
-	        },
-	        dataType: 'json'
-		})
-		.then((response) => {
-	        return response.json();
-	    })
-	    .then(json => {
-	    	if(isTime)
-		    	json.times.map(product => {
-		    		if(product.display_name == "uberGO")
-		    			this.setState({
-		    				waitEstimate: product.estimate
-		    			});
-		    	});
-		    else
-		  		json.prices.map(product => {
-		  			if(product.display_name == "uberGO"){
-		  				this.setState({
-		  					travelTime: product.duration
-		  				});
-		  				this.calculateTimeDiff();
-		  			}
-		  		}); 	
-	    });
-	}
-
-	getPriceEstimate() {
-		var url = "http://localhost:8008/estimates/price?start_latitude="+ this.state.start_latitude + "&start_longitude=" + this.state.start_longitude + "&end_latitude=" + this.state.end_latitude + "&end_longitude=" + this.state.end_longitude + "&server_token=" + uberKey;
-		if(this.state.end_latitude)
-			this.getPriceTime(url, false);
-	}
-
-	getTimeEstimate() {
-		var url = "http://localhost:8008/estimates/time?start_latitude="+ this.state.start_latitude + "&start_longitude=" + this.state.start_longitude + "&server_token=" + uberKey;
-		this.getPriceTime(url, true);
-	}
-
 	remindMe() {
+		
+		this.setState({
+			showMessage: false
+		});
+
 		if(this.state.start_latitude){
-			this.getTimeEstimate();
-			this.getPriceEstimate();
+			fetch("http://localhost:8008/rest/sendMail", {
+				method:"POST",
+				headers: {
+	                'Accept': 'application/json',
+	                'Content-Type': 'application/json'
+	        	},
+				body: JSON.stringify({
+					start_latitude: this.state.start_latitude,
+					start_longitude: this.state.start_longitude,
+					end_latitude: this.state.end_latitude,
+					end_longitude: this.state.end_longitude,
+					destTime: this.state.time,
+					email: this.state.email
+				}),
+	        	dataType: 'json'
+			})
+			.then(response => { 
+				console.log(response)
+				return response.json();
+			}).then(json => {
+				if(json.message == 'Success')
+					this.setState({
+						showMessage: true
+					});
+				console.log(json);
+			});
 		}
 	}
 
 	render() {
 		return <div>
+			<h1>Uber Remainder</h1>
 			<Form horizontal>
 			    <FormGroup controlId="formHorizontalSource">
 			      <Col componentClass={ControlLabel} sm={2}>
@@ -216,6 +168,9 @@ class App extends React.Component {
 			      </Col>
 			    </FormGroup>
 			</Form>
+			{this.state.showMessage ? <h2 style={{'color': '#D83D05'}}>
+				Remainder will be sent to your Email.
+				</h2> : ''}
 		</div>
 	}
 }
